@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Fluid Balance Chart Demo</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="//code.jquery.com/ui/1.9.2/themes/smoothness/jquery-ui.css" rel="stylesheet" type="text/css" />
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/css/toastr.css">
+    <link href="/styles/main.css" rel="stylesheet" type="text/css" />
+    <script src="//cdnjs.cloudflare.com/ajax/libs/require.js/2.1.15/require.min.js"  data-main="/scripts/app"></script>
+  </head>
+<body class="body">
+<div class="container-fluid" data-bind="with: fluidBalanceChart">
+  <div class="row">
+    <div class="col-md-4 form-horizontal">
+      <div class="form-group">
+        <label for="chartDate" class="col-md-3 control-label">Chart Date:</label>
+        <div class="col-md-7">
+          <span id="chartDate" class="form-control" data-bind="text:date.format('Do MMMM YYYY')"></span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="weight" class="col-md-3 control-label">Current weight:</label>
+        <div class="col-md-7">
+          <span id="weight" class="form-control" data-bind="text:weight"></span>
+        </div>
+        <div class="col-md-2">
+          <label for="weight">kg</label>
+          <a href="#" data-toggle="tooltip" data-placement="top" title="Estimated Value">
+              <span class="glyphicon glyphicon-asterisk" aria-hidden="true"></span>
+          </a>
+        </div>
+      </div>
+      <div class="form-group" data-bind="visible:chartType() ==='Paediatric'">
+        <label for="workingWeight" class="col-md-3 control-label">Working weight:</label>
+        <div class="col-md-7">
+          <input type="text"   id="workingWeight" class="form-control" data-bind="value:workingWeight"></input>
+        </div>
+        <div class="col-md-2">
+          <label for="height">kg</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="aim" class="col-md-3 control-label">Aim:</label>
+        <div class="col-md-7">
+          <input type="text" id="aim" class="form-control" data-bind="value:aim"></input>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="plan" class="col-md-3 control-label">Plan and reason for monitoring:</label>
+        <div class="col-md-7">
+          <textarea rows="3" id="plan" class="form-control" data-bind="value:reason"></textarea>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="btn-group col-md-7 col-md-offset-3">
+          <button type="submit" class="btn btn-default" data-bind="click:$root.saveChartInfo">Save</button>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-8">
+      <div class="row">
+        <div id='fluidBalanceChart' style="width: 100%; height:200px;"></div>
+      </div>
+      <br />
+      <div class="row" data-bind="visible: hasIrrigation()">
+        <div id='fluidBalanceChartIrrigation' style="width: 100%; height:200px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6" role="group">
+      <div class="btn-group" role="group">
+        <button type="button" role="group" class="btn btn-default" value="Adult" data-bind="click:$root.changeToAdult, css: { active: chartType() !=='Paediatric'}">Adult</button>
+        <button type="button" role="group" class="btn btn-default" value="Paediatric" data-bind="click:$root.changeToPeadiatric, css: { active: chartType() ==='Paediatric'}">Paediatric</button>        
+      </div>
+      <div class="btn-group" role="group">
+        <button type="button" role="group" class="btn btn-default" value="Irrigation" data-bind="click:$root.changeChartIrrigation, css: { active: hasIrrigation()}">Irrigation</button>
+      </div>
+    </div>
+  </div>
+  <br />
+  <div class="row">
+    <table class="table table-bordered table-condensed table-striped" width="100%">
+    <thead>
+      <!-- Main Headings -->
+      <tr>
+        <th class="routesDiv" rowspan="4">Hour</th>
+        <th class="routesDiv" data-bind="attr: {colspan: routesIn() === undefined? 1 :  routesIn().length+$root.routesOffset}">
+          <h3 class="pull-left">Input</h3>
+          <span class="pull-right">
+            <button class="btn btn-default" data-bind="click: $root.addRouteIn">
+              <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
+            </button>
+          </span>
+        </th>
+        <th class="routesDiv" colspan="3" data-bind="visible: hasIrrigation"><h3>Irrigation</h3></th>
+        <th class="routesDiv" data-bind="attr: {colspan: routesOut() === undefined? 1 :  routesOut().length+$root.routesOffset}">
+          <h3 class="pull-left">Output</h3>
+          <span class="pull-right">
+            <button class="btn btn-default" data-bind="click: $root.addRouteOut">
+              <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
+            </button>
+          </span>
+        </th>
+        <th rowspan="3">Overall<br />Balance</th>
+      </tr>
+      <!-- Route Headings -->
+      <tr>
+        <!-- ko foreach: routesIn -->
+        <th rowspan="2" data-bind="text:routeName">
+        </th>
+        <!-- /ko -->
+        <th class="routesDiv text-center" data-bind="attr: {colspan: $root.routesOffset}">Totals</th>
+
+        <th rowspan="2" data-bind="visible: hasIrrigation()">Input</th>
+        <th rowspan="2" data-bind="visible: hasIrrigation()">Output</th>
+        <th class="routesDiv" rowspan="2" data-bind="visible: hasIrrigation()">Balance</th>
+
+        <!-- ko foreach: routesOut -->
+        <th rowspan="2" data-bind="text:routeName">
+        </th>
+        <!-- /ko -->
+        <th class="text-center" data-bind="attr: {colspan: $root.routesOffset}">Totals</th>
+      </tr>
+      <!-- Totals Headings -->
+      <tr>
+        <th>Hourly</th>
+        <th class="routesDiv">Cumulative</th>
+
+        <th>Hourly</th>
+        <th>Cumulative</th>
+      </tr>
+      <!-- Running Totals -->
+      <tr>
+        <!-- ko foreach: lastHour().inReadings -->
+        <th data-bind="text:runningTotal"></th>        
+        <!-- /ko -->
+
+        <th>N/A</th>
+        <th class="routesDiv" data-bind="text:lastHour()? lastHour().runningTotalIn:'0'"></th>
+
+        <th data-bind="text:lastHour()? lastHour().runningTotalIrrigationIn:'0', visible: hasIrrigation()"></th>
+        <th data-bind="text:lastHour()? lastHour().runningTotalIrrigationOut:'0', visible: hasIrrigation()"></th>
+        <th class="routesDiv" data-bind="text:lastHour()? lastHour().runningTotalIrrigationBalance:'0', visible: hasIrrigation()"></th>
+
+        <!-- ko foreach: lastHour().outReadings -->
+        <th data-bind="text:runningTotal"></th>        
+        <!-- /ko -->
+        <th>N/A</th>
+        <th class="routesDiv" data-bind="text:lastHour()? lastHour().runningTotalOutIncludingIrrigationBalance:'0'"></th>
+        <th data-bind="text:lastHour()? lastHour().runningTotalIncludingIrrigationBalance:'0'"></th>
+      </tr>
+    </thead>
+      <!-- Hours -->
+    <tbody>
+      <!-- ko foreach: hours -->
+      <tr>
+        <td class="routesDiv" data-bind="text: hourDesc"></td>
+        <!-- ko foreach: inReadings -->
+          <td>
+            <div class="entry">
+              <div class="readings">
+                 <span class="pull-right">
+                  <button class="btn btn-default btn-xs" data-bind="click: $root.addReading">
+                    <span class="glyphicon glyphicon-plus" aria-hidden="true">                  
+                    </span>
+                  </button>
+                 </span>
+                  <!-- ko foreach: readings -->
+                    <a href="#" data-bind="text: volume, visible: volume() !== undefined, click: $root.openReading.bind($data, $parent)"></a>
+
+                    <a href="#" data-bind="text: alternativeVal, visible: alternativeVal() !== undefined, click: $root.openReading.bind($data, $parent)"></a>
+
+                    <a href="#" data-bind="visible: comment() !== undefined, attr: {title: comment}" data-toggle="tooltip" data-placement="right">
+                      <span class="glyphicon glyphicon-asterisk" aria-hidden="true"></span>
+                    </a>
+                    <br />
+                  <!-- /ko -->
+              </div>           
+              <div class="cumulativeVal" data-bind="text: runningTotal">
+              </div>
+            </div>
+          </td>
+        <!-- /ko -->         
+        <th data-bind="text: totalIn"></th>
+        <th class="routesDiv" data-bind="text: runningTotalIn"></th>
+
+        <!-- ko foreach: irrigationInReadings -->
+          <td data-bind="visible: $root.fluidBalanceChart().hasIrrigation()">
+            <div class="entry">
+              <div class="readings">
+                 <span class="pull-right">
+                  <button class="btn btn-default btn-xs" data-bind="click: $root.addReading">
+                    <span class="glyphicon glyphicon-plus" aria-hidden="true">                  
+                    </span>
+                  </button>
+                 </span>
+                  <!-- ko foreach: readings -->
+                    <a href="#" data-bind="text: volume, visible: volume() !== undefined, click: $root.openReading.bind($data, $parent)"></a>
+
+                    <a href="#" data-bind="text: alternativeVal, visible: alternativeVal() !== undefined, click: $root.openReading.bind($data, $parent)"></a>
+
+                    <a href="#" data-bind="visible: comment() !== undefined, attr: {title: comment}" data-toggle="tooltip" data-placement="right">
+                      <span class="glyphicon glyphicon-asterisk" aria-hidden="true"></span>
+                    </a>
+                    <br />
+                  <!-- /ko -->
+              </div>           
+              <div class="cumulativeVal" data-bind="text: runningTotal">
+              </div>
+            </div>
+          </td>
+        <!-- /ko -->  
+
+        <!-- ko foreach: irrigationOutReadings -->
+          <td data-bind="visible: $root.fluidBalanceChart().hasIrrigation()">
+            <div class="entry">
+              <div class="readings">
+                 <span class="pull-right">
+                  <button class="btn btn-default btn-xs" data-bind="click: $root.addReading">
+                    <span class="glyphicon glyphicon-plus" aria-hidden="true">                  
+                    </span>
+                  </button>
+                 </span>
+                  <!-- ko foreach: readings -->
+                    <a href="#" data-bind="text: volume, visible: volume() !== undefined, click: $root.openReading.bind($data, $parent)"></a>
+
+                    <a href="#" data-bind="text: alternativeVal, visible: alternativeVal() !== undefined, click: $root.openReading.bind($data, $parent)"></a>
+
+                    <a href="#" data-bind="visible: comment() !== undefined, attr: {title: comment}" data-toggle="tooltip" data-placement="right">
+                      <span class="glyphicon glyphicon-asterisk" aria-hidden="true"></span>
+                    </a>
+                    <br />
+                  <!-- /ko -->
+              </div>           
+              <div class="cumulativeVal" data-bind="text: runningTotal">
+              </div>
+            </div>
+          </td>
+        <!-- /ko -->  
+
+        <th class="routesDiv" data-bind="text: totalIrrigationBalance, visible: $root.fluidBalanceChart().hasIrrigation()"></th>
+
+        <!-- ko foreach: outReadings -->
+          <td>
+            <div class="entry">
+              <div class="readings">
+                 <span class="pull-right">
+                  <button class="btn btn-default btn-xs" data-bind="click: $root.addReading">
+                    <span class="glyphicon glyphicon-plus" aria-hidden="true">                  
+                    </span>
+                  </button>
+                 </span>
+                  <!-- ko foreach: readings -->
+                    <a href="#" data-bind="text: volume, visible: volume() !== undefined, click: $root.openReading.bind($data, $parent)"></a>
+
+                    <a href="#" data-bind="text: alternativeVal, visible: alternativeVal() !== undefined, click: $root.openReading.bind($data, $parent)"></a>
+
+                    <a href="#" data-bind="visible: comment() !== undefined, attr: {title: comment}" data-toggle="tooltip" data-placement="right">
+                      <span class="glyphicon glyphicon-asterisk" aria-hidden="true"></span>
+                    </a>
+                    <br />
+                  <!-- /ko -->
+              </div>           
+              <div class="cumulativeVal" data-bind="text: runningTotal">
+              </div>
+            </div>
+          </td>
+        <!-- /ko -->  
+        <th data-bind="text: totalOutIncludingIrrigationBalance">
+        </th>
+        <th class="routesDiv" data-bind="text: runningTotalOutIncludingIrrigationBalance">
+        </th>
+        <th data-bind="text: runningTotalIncludingIrrigationBalance">
+        </th>
+      </tr>
+      <!-- /ko -->      
+    </tbody>
+    <tfoot>
+      <!-- Running Totals -->
+      <tr>
+        <th class="routesDiv"></th>
+        <!-- ko foreach: lastHour().inReadings -->
+        <th data-bind="text:runningTotal">
+        </th>        
+        <!-- /ko -->
+
+        <th>N/A</th>
+        <th class="routesDiv" data-bind="text:lastHour()? lastHour().runningTotalIn:'0'"></th>
+
+        <th data-bind="text:lastHour()? lastHour().runningTotalIrrigationIn:'0', visible: $root.fluidBalanceChart().hasIrrigation()"></th>
+        <th data-bind="text:lastHour()? lastHour().runningTotalIrrigationOut:'0', visible: $root.fluidBalanceChart().hasIrrigation()"></th>
+        <th class="routesDiv" data-bind="text:lastHour()? lastHour().runningTotalIrrigationBalance:'0', visible: $root.fluidBalanceChart().hasIrrigation()"></th>
+
+        <!-- ko foreach: lastHour().outReadings -->
+        <th data-bind="text:runningTotal">
+        </th>        
+        <!-- /ko -->
+        <th>N/A</th>
+        <th class="routesDiv" data-bind="text:lastHour()? lastHour().runningTotalOutIncludingIrrigationBalance:'0'"></th>
+        <th data-bind="text:lastHour()? lastHour().runningTotalIncludingIrrigationBalance:'0'"></th>
+      </tr>      
+    </tfoot>
+    </table>
+  </div>
+</div>
+
+<!-- BEGIN :: reading -->
+<div id="readingPopout" class="popout" data-bind="visible: $root.displayReadingPopout(), with: $root.reading">
+  <div class="form-group">
+        <label for="volume">Volume:</label>
+        <input class="form-control" id="volume" data-bind="value: volume"></input>
+  </div>          
+  <div class="form-group">
+      <label for="altReading">Alternative Reading:</label>
+      <select class="form-control" data-bind="options: $root.alternativeReadings, selectedOptions: alternativeVal" ></select>
+  </div>
+  <hr />
+  <div class="form-group">
+        <label for="comments">Comments:</label>
+        <input class="form-control" id="comments" data-bind="value: comment"></input>
+  </div>          
+  <div class="btn-group">
+      <button class="btn btn-default btn-sm" data-bind="click: $root.saveReading">Save</button>
+      <button class="btn btn-default  btn-sm" data-bind="click: $root.closeReading">Close</button>
+  </div>
+</div>
+<!-- End :: reading -->
+
+<!-- BEGIN :: route out -->
+<div id="routeOutPopout" class="popout" data-bind="visible: $root.displayRouteOutPopout(), with: $root.routeOut">
+  <div class="form-group">
+    <label for="routeType">Route OUT:</label>
+    <select class="form-control" data-bind="options: $root.routeOutNames, selectedOptions: routeName" ></select>
+  </div>
+  <div class="form-group">
+    <label for="routeType">Category:</label>
+    <select class="form-control" data-bind="options: $root.routeOutSubNames, selectedOptions: routeName" ></select>
+  </div>    
+  <div class="form-group">
+        <label for="routeAdditionalInfo">Additional Info:</label>
+        <input class="form-control" id="routeAdditionalInfo"></input>
+  </div>          
+  <div class="btn-group">
+      <button class="btn btn-default btn-sm" data-bind="click: $root.saveRouteOut">Save</button>
+      <button class="btn btn-default  btn-sm" data-bind="click: $root.closeRouteOut">Close</button>
+  </div>
+</div>
+<!-- END :: route out -->
+
+<!-- BEGIN :: route in -->
+<div id="routeInPopout" class="popout" data-bind="visible: $root.displayRouteInPopout(), with: $root.routeIn">
+  <div class="form-group">
+    <label for="routeType">Route IN:</label>
+    <select class="form-control" data-bind="options: $root.routeInNames, selectedOptions: routeName" ></select>
+  </div>
+  <div class="form-group">
+    <label for="routeType">Category:</label>
+    <select class="form-control" data-bind="options: $root.routeInSubNames, selectedOptions: routeName" ></select>
+  </div>
+  <div class="form-group">
+        <label for="routeAdditionalInfo">Additional Info:</label>
+        <input class="form-control" id="routeAdditionalInfo"></input>
+  </div>          
+  <div class="btn-group">
+      <button class="btn btn-default btn-sm" data-bind="click: $root.saveRouteIn">Save</button>
+      <button class="btn btn-default  btn-sm" data-bind="click: $root.closeRouteIn">Close</button>
+  </div>
+</div> 
+<!-- END :: route in -->
+
+</body>
+</html>
